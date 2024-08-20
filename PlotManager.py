@@ -20,6 +20,9 @@ class PlayerAnalysis:
         self._plot_radar(ax, mean_values, metrics, player_types, colors)
         plt.tight_layout()
         plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
 
     def radar_chart(self, filename):
         # Plot a single radar cart FOR ROUND with the sum of each of the metrics for the specific round
@@ -37,18 +40,25 @@ class PlayerAnalysis:
         plt.tight_layout()
         fig.suptitle('Radar Chart by Round and Source', size=20, y=1.05)
         plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
+
 
 
     def self_plots_tot(self, filename):
         # Plot eccentricity metric as boxplot for each game
         visualization_df, _ = self._create_df()
 
-        plt.figure(figsize=(10, 6))
+        fig = plt.figure(figsize=(10, 6))
         sns.boxplot(x='Source', y='Differences', data=visualization_df, palette="Set2")
         plt.xlabel('Player Type', fontsize=14)
         plt.ylabel('Eccentricity', fontsize=14)
         plt.tight_layout()
         plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
 
 
     def self_plots(self, filename):
@@ -88,8 +98,10 @@ class PlayerAnalysis:
 
         # Adjust layout to prevent overlap
         plt.tight_layout(rect=[0, 0, 0.85, 1])  # Adjust the right margin for the legend
-
         plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
 
     def stack_plots_sing(self, filename):
         # Plot singular plot of attack, defense and vitality as lineplot for each player
@@ -113,7 +125,7 @@ class PlayerAnalysis:
         max_value = action_df['Count'].max()
         visualization_data = []
         action_counts = {}
-        df = self.df[self.df['Action_Type'] != 'DECLARE_PIZZA']
+        df = self.df[self.df['Action_Type'] == 'DISCARD']
         for _, row in df.iterrows():
             possible_actions = row['Possible_Actions']
             action_done = row['Action_Description']
@@ -156,7 +168,7 @@ class PlayerAnalysis:
         return visualization_df, max_value
 
 
-    def _plot_radar(self, ax, data, metrics, player_types, colors, include_legend=False):
+    def _plot_radar(self, ax, data, metrics, player_types, colors, include_legend=True):
         # Plot radar chart
         angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
         angles += angles[:1]
@@ -171,10 +183,10 @@ class PlayerAnalysis:
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(metrics)
         if include_legend:
-            ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.1))
+            ax.legend(loc='upper right')
 
     def _plot_stat(self, data, stat_name, rounds, player_types, colors, filename):
-        plt.figure(figsize=(10, 6))
+        fig =  plt.figure(figsize=(10, 6))
         # Loop over each player type and plot using seaborn lineplot
         for player_type in player_types:
             sns.lineplot(x=rounds, y=data[player_type], label=player_type, color=colors[player_type])
@@ -185,3 +197,6 @@ class PlayerAnalysis:
         plt.ylabel(stat_name)
         plt.legend(loc='upper right')
         plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
