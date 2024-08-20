@@ -1,6 +1,53 @@
 import pandas as pd
-from PlotManager import PlayerAnalysis
 
+def eccentricity_df(df):
+    # Create a df that contains the eccentricity metric
+    action_df = pd.read_pickle('random.pkl')
+    action_df['Action'] = action_df['Action'].astype(str)
+    max_value = action_df['Count'].max()
+    visualization_data = []
+    action_counts = {}
+    df = df[df['Action_Type'] == 'DISCARD']
+    for _, row in df.iterrows():
+        possible_actions = row['Possible_Actions']
+        action_done = row['Action_Description']
+        player_type = row['Source']
+        round_num = row['Round']
+        for action in possible_actions:
+            if action == 'pass':
+                action_counts[action] = - max_value  # Special handling for 'pass'
+            else:
+                count = action_df[action_df['Action'] == action]['Count'].values
+                action_counts[action] = count[0] if len(count) > 0 else 0
+
+        # Add action_done to action_counts if it's not in possible_actions
+        if action_done == 'pass':
+            action_counts[action_done] = - max_value
+
+        # Calculate differences
+        man_pass = 0
+        highest_prob = max(action_counts.values())
+        differences = highest_prob - action_counts.get(action_done, 0)
+        if highest_prob == - max_value and action_done == 'Pass':
+            man_pass = 1
+            differences = - 0.01
+        if highest_prob != -max_value and action_done == 'Pass':
+            man_pass = 2
+            differences = - 0.03
+        visualization_data.append({
+            'Round': round_num,
+            'Source': player_type,
+            'Action Done': action_done,
+            'Differences': differences,
+            'Possible Action': possible_actions,
+            'No poss': man_pass
+        })
+
+    # Convert the collected data into a DataFrame for visualization
+    visualization_df = pd.DataFrame(visualization_data)
+    visualization_df['Action Count'] = visualization_df.groupby(['Round', 'Source']).cumcount() + 1
+
+    return visualization_df, max_value
 
 def calculate_scores(df, game):
     ## Function to create the df with Attack, Defense and Vitality

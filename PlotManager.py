@@ -1,4 +1,4 @@
-import pandas as pd
+import CalculateMetrics
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -6,6 +6,28 @@ import numpy as np
 class PlayerAnalysis:
     def __init__(self, df):
         self.df = df
+
+    def radar_chart(self, filename):
+        # Plot a single radar cart FOR ROUND with the sum of each of the metrics for the specific round
+        # The original df is cut when a player has finished
+        metrics = ['Attack', 'Defense', 'Vitality']
+        player_types = self.df['Source'].unique()
+        palette = sns.color_palette("Set2", len(player_types))
+        colors = dict(zip(player_types, palette))
+        rounds = sorted(self.df['Round'].unique())
+        fig, axs = plt.subplots(nrows=1, ncols=len(rounds), figsize=(20, 6), subplot_kw=dict(polar=True))
+        if len(rounds) == 1:
+            axs = [axs]  # Convert to list for consistency
+
+        for i, round_num in enumerate(rounds):
+            self._plot_radar(axs[i], self.df, metrics, player_types, round_num, colors, include_legend=(i == 0))
+
+        plt.tight_layout()
+        fig.suptitle('Radar Chart by Round and Source', size=20, y=1.05)
+        plt.savefig(filename)
+        save_fig = True
+        print("Figure saved")
+        return fig, save_fig
 
     def radar_chart_tot(self, filename):
         # Plot a single radar chart FOR GAME that is the collection of the mean of the three metrics
@@ -17,38 +39,16 @@ class PlayerAnalysis:
         mean_values = self.df.groupby('Source')[metrics].mean()
 
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-        self._plot_radar(ax, mean_values, metrics, player_types, colors)
+        self._plot_radar_tot(ax, mean_values, metrics, player_types, colors)
         plt.tight_layout()
         plt.savefig(filename)
         save_fig = True
         print("Figure saved")
         return fig, save_fig
-
-    def radar_chart(self, filename):
-        # Plot a single radar cart FOR ROUND with the sum of each of the metrics for the specific round
-        # The original df is cut when a player has finished
-        metrics = ['Attack', 'Defense', 'Vitality']
-        player_types = self.df['Source'].unique()
-        palette = sns.color_palette("Set2", len(player_types))
-        colors = dict(zip(player_types, palette))
-        rounds = sorted(self.df['Round'].unique())
-
-        fig, axs = plt.subplots(nrows=1, ncols=len(rounds), figsize=(20, 6), subplot_kw=dict(polar=True))
-        for i, round_num in enumerate(rounds):
-            self._plot_radar(axs[i], self.df, metrics, player_types, round_num, colors, include_legend=(i == 0))
-
-        plt.tight_layout()
-        fig.suptitle('Radar Chart by Round and Source', size=20, y=1.05)
-        plt.savefig(filename)
-        save_fig = True
-        print("Figure saved")
-        return fig, save_fig
-
-
 
     def self_plots_tot(self, filename):
         # Plot eccentricity metric as boxplot for each game
-        visualization_df, _ = self._create_df()
+        visualization_df, _ = CalculateMetrics.eccentricity_df(self.df)
 
         fig = plt.figure(figsize=(10, 6))
         sns.boxplot(x='Source', y='Differences', data=visualization_df, palette="Set2")
@@ -64,7 +64,7 @@ class PlayerAnalysis:
     def self_plots(self, filename):
         # Plot eccentricity metric as barplot for each action done by each of the player follow the sequence
         # of the actions
-        visualization_df, max_value = self._create_df()
+        visualization_df, max_value = CalculateMetrics.eccentricity_df(self.df)
         player_types = visualization_df['Source'].unique()
         palette = sns.color_palette("Set2", len(player_types))  # Use a predefined palette
         color_mapping = dict(zip(player_types, palette))
@@ -119,71 +119,57 @@ class PlayerAnalysis:
         self._plot_stat(pivoted_vitality, 'Vitality', rounds, player_types, color_mapping, 'vitality.png')
 
 
-    def _create_df(self):
-        action_df = pd.read_pickle('random.pkl')
-        action_df['Action'] = action_df['Action'].astype(str)
-        max_value = action_df['Count'].max()
-        visualization_data = []
-        action_counts = {}
-        df = self.df[self.df['Action_Type'] == 'DISCARD']
-        for _, row in df.iterrows():
-            possible_actions = row['Possible_Actions']
-            action_done = row['Action_Description']
-            player_type = row['Source']
-            round_num = row['Round']
-            for action in possible_actions:
-                if action == 'pass':
-                    action_counts[action] = - max_value  # Special handling for 'pass'
-                else:
-                    count = action_df[action_df['Action'] == action]['Count'].values
-                    action_counts[action] = count[0] if len(count) > 0 else 0
-
-            # Add action_done to action_counts if it's not in possible_actions
-            if action_done == 'pass':
-                action_counts[action_done] = - max_value
-
-            # Calculate differences
-            man_pass = 0
-            highest_prob = max(action_counts.values())
-            differences = highest_prob - action_counts.get(action_done, 0)
-            if highest_prob == - max_value and action_done == 'Pass':
-                man_pass = 1
-                differences = - 0.01
-            if highest_prob != -max_value and action_done == 'Pass':
-                man_pass = 2
-                differences = - 0.03
-            visualization_data.append({
-                'Round': round_num,
-                'Source': player_type,
-                'Action Done': action_done,
-                'Differences': differences,
-                'Possible Action': possible_actions,
-                'No poss': man_pass
-            })
-
-        # Convert the collected data into a DataFrame for visualization
-        visualization_df = pd.DataFrame(visualization_data)
-        visualization_df['Action Count'] = visualization_df.groupby(['Round', 'Source']).cumcount() + 1
-
-        return visualization_df, max_value
 
 
-    def _plot_radar(self, ax, data, metrics, player_types, colors, include_legend=True):
+    def _plot_radar(self, ax, data, metrics, player_types, round_num, colors, include_legend):
         # Plot radar chart
-        angles = np.linspace(0, 2 * np.pi, len(metrics), endpoint=False).tolist()
-        angles += angles[:1]
+        num_vars = len(metrics)
+        angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
+        angles += angles[:1]  # Close the circle
 
+        # Plot each player type
         for player_type in player_types:
-            values = data.loc[player_type, metrics].values.flatten().tolist()
-            values += values[:1]
+            subset = data[data['Source'] == player_type]
+            means = subset[subset['Round'] == round_num][metrics].mean()
+
+            values = means.tolist()
+            values += values[:1]  # Close the circle
             ax.plot(angles, values, label=player_type, color=colors[player_type], linewidth=2)
             ax.fill(angles, values, color=colors[player_type], alpha=0.25)
 
-        ax.set_yticklabels([])
+        # Set labels
+        ax.set_ylim(0, 3)
+        ax.set_yticks([0, 1, 2, 3])
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(metrics)
+        ax.set_title(f'Round {round_num}', size=16, color='black')
+
+        # Add legend only if specified
         if include_legend:
-            ax.legend(loc='upper right')
+            ax.legend(loc='lower right', title='Player')
+
+    def _plot_radar_tot(self, ax, mean_values, metrics, player_types, colors):
+        num_vars = len(metrics)
+        # Compute angle for each axis
+        angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
+        angles += angles[:1]  # Close the circle
+
+        # Plot each player type
+        for player_type in player_types:
+            values = mean_values.loc[player_type].tolist()
+            values += values[:1]  # Close the circle
+
+            ax.plot(angles, values, label=player_type, color=colors[player_type], linewidth=2)
+            ax.fill(angles, values, color=colors[player_type], alpha=0.25)
+
+        # Set labels
+        ax.set_ylim(0, 3)
+        ax.set_yticks([0, 1, 2, 3])
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(metrics)
+        ax.set_title('Metrics by Player Type', size=16, color='black')
+
+        ax.legend(loc='lower right', title='Player Type')
 
     def _plot_stat(self, data, stat_name, rounds, player_types, colors, filename):
         fig =  plt.figure(figsize=(10, 6))

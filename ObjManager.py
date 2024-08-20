@@ -94,9 +94,10 @@ for game in df['Match'].unique():
 
     metrics = PlayerAnalysis(results)
     # Example of using one of the plot functions for Attack, Defense and Vitality
-    metrics.stack_plots_sing(f'test{game}.png')
+    metrics.radar_chart(f'test{game}.png')
+
 
     # Example of eccentricity plot
     analysis = PlayerAnalysis(game_df)
-    analysis.self_plots(f'singletest{game}.png')
+    # analysis.self_plots(f'singletest{game}.png')
 
