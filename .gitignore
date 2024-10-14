@@ -2,3 +2,7 @@ metrics_env
 .idea
 __pycache__
 .git
+MetricsPlots
+NewMetrics.csv
+prova.png
+MetricsDataset

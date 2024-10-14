@@ -1,20 +1,25 @@
 import pandas as pd
+import numpy as np
 from PlotManager import PlayerAnalysis
 
 
-def calculate_scores(df, game):
-    ## Function to create the df with Attack, Defense and Vitality
+def calculate_metrics(df, game):
+    action_df = pd.read_pickle('random.pkl')
+    action_df['Action'] = action_df['Action'].astype(str)
+    max_value = action_df['Count'].max()
     df['Attack'] = 0
     df['Defense'] = 0
     df['Vitality'] = 0
-    df = df[(df['Match'] == game) & (df['Source'] != 'SYSTEM')]
+    df['Eccentricity'] = 0  # New column for eccentricity
+    df = df[(df['Match'] == game) & (df['Source'] != 'SYSTEM') & (df['Action_Type'] != 'DECLARE_PIZZA')]
 
-    # Group by round and calculate Attack, Defence, and Vitality
+    # Group by round and calculate metrics
     for round_number, round_df in df.groupby('Round'):
         player_attack = {}
         player_defense = {}
+        visualization_data = []
 
-        # Extracting relevant columns
+        # Extract relevant columns
         actions = round_df['Action_Description'][round_df['Action_Description'].notna()].tolist()
         players = round_df['Source'].tolist()
 
@@ -40,36 +45,103 @@ def calculate_scores(df, game):
                     else:
                         player_attack[player] = actions[i + 1:].count('pass')
 
-        # Calculating vitality: Count of actions that are not 'PASS'
+                # Calculate eccentricity
+                possible_actions = round_df.iloc[i]['Possible_Actions']
+                action_done = round_df.iloc[i]['Action_Description']
+                action_counts = {}
+
+                for action in possible_actions:
+                    if action == 'pass':
+                        action_counts[action] = -max_value  # Special handling for 'pass'
+                    else:
+                        count = action_df[action_df['Action'] == action]['Count'].values
+                        action_counts[action] = count[0] if len(count) > 0 else 0
+
+                # Add action_done to action_counts if it's not in possible_actions
+                if action_done == 'pass':
+                    action_counts[action_done] = -max_value
+
+                # Calculate differences (eccentricity)
+                highest_prob = max(action_counts.values())
+                differences = highest_prob - action_counts.get(action_done, 0)
+
+                # Additional conditions for 'pass' action
+                if highest_prob == -max_value and action_done == 'pass':
+                    differences = -0.01
+                if highest_prob != -max_value and action_done == 'pass':
+                    differences = -0.03
+
+                # Store the eccentricity
+                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Eccentricity'] = differences
+
+        # Calculate vitality: Count of actions that are not 'pass'
         vitality = round_df.groupby('Source')['Action_Description'].apply(
             lambda x: x[(x.notna()) & (x != 'pass')].count()
         )
 
-        for i, player in enumerate(players):
+        metrics = {
+            'Attack': player_attack,
+            'Defense': player_defense,
+            'Vitality': vitality
+        }
+        encountered_players = set()
+        for index, row in round_df.iterrows():
+            player = row['Source']
+
             if player is not None:
-                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Attack'] = player_attack[
-                    player]
-                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Defense'] = \
-                    player_defense[player]
-                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Vitality'] = vitality[
-                    player]
-            else:
-                df.loc[(df['Round'] == round_number) & (df['Source'] == player), ['Attack', 'Defense',
-                                                                                              'Vitality']] = 0
+                # Check if the player has already been encountered
+                if player in encountered_players:
+                    # If already encountered, set the metrics for this specific row to NaN
+                    df.loc[index, ['Attack', 'Defense', 'Vitality']] = np.nan
+                else:
+                    # If not encountered, save the metric values
+                    for metric, values in metrics.items():
+                        df.loc[index, metric] = values[player]
+                    # Add player to the set of encountered players
+                    encountered_players.add(player)
 
-    # df = df[df['Action_Description'].notna()]
-    result_df = df[['Match', 'Round', 'Source', 'Attack', 'Defense', 'Vitality']]
+    # Extract the result DataFrame with the new eccentricity column
+    result_df = df[['Match', 'Round', 'Source', 'Attack', 'Defense', 'Vitality', 'Eccentricity']]
+    aggr_df = df[['Match', 'Round', 'Source', 'Attack', 'Defense', 'Vitality']]
 
-    return result_df
+    aggr_df = df.groupby(['Match', 'Round', 'Source'], as_index=False).agg({
+        'Attack': 'sum',
+        'Defense': 'sum',
+        'Vitality': 'first'
+        # Keep the first occurrence of Vitality (or you can use 'sum' if you want to sum across rounds)
+    })
+    return result_df, aggr_df
+
+def standardize_names(df):
+    df['Source'] = df['Source'].replace({
+        r'Random_\d+': 'Random',          # Any player like Random_01, Random_02 becomes 'Random'
+        r'DQL_vsEveryone.*': 'DQL_vsEveryone',  # Standardize DQL_vsEveryone
+        r'PPO_vsEveryone.*': 'PPO_vsEveryone'   # Standardize PPO_vsEveryone
+    }, regex=True)
+    return df
+
+df1 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_1.pkl")
+df2 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_2.pkl")
+df3 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_3.pkl")
+df4 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_4.pkl")
+# Apply the function to each dataframe
+df1 = standardize_names(df1)
+df2 = standardize_names(df2)
+df3 = standardize_names(df3)
+df4 = standardize_names(df4)
+
+# Step 2: Merge the dataframes
+# Assuming the dataframes share a common key like 'round' or 'game_id'
+df = pd.concat([df1, df2, df3, df4], ignore_index=True)
 
 
-base_path = "/usr/local/src/robot/cognitiveInteraction/SimulationChefsHat/MetricsChefsHat/Datasets/Dataset.pkl"  # change
+base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/AIACIMP/Dataset.pkl"
 # here with the path of your dataset
 
-df = pd.read_pickle(base_path)
-df = df.reset_index(drop=True)
-
-
+# df = pd.read_pickle(base_path)
+# df = df.reset_index(drop=True)
+final_df = []
+aggr_df = []
 
 # Calculate scores
 for game in df['Match'].unique():
@@ -77,11 +149,20 @@ for game in df['Match'].unique():
         continue
     # Filter the DataFrame for the current game
     game_df = df[(df['Match'] == game) & (df['Source'] != 'SYSTEM')]
-    finish_index = game_df[game_df['Player_Finished'] == True].index.min()
-    game_df = game_df.loc[:finish_index]
 
-    # Calculate the metrics Attack, Defense and Vitality for the current game
-    results = calculate_scores(game_df, game)
+    # Find the index where Player_Finished is True
+    finish_index = game_df[game_df['Player_Finished'] == True].index.min()
+
+    # Get the Round value for the finish_index row
+    finish_round = game_df.loc[finish_index, 'Round']
+    next_round = finish_round + 1
+    next_round_index = game_df[game_df['Round'] == next_round].index.min()
+
+    game_df = game_df.loc[:next_round_index - 1]
+    # Group by round and calculate Attack, Defence, and Vitality
+    result, summed = calculate_metrics(game_df, game)
+    final_df.append(result)
+    aggr_df.append(summed)
 
     # Create a PlayerAnalysis instance and generate the plot for Attack, Defense, Vitality and Eccentricity
     # There are multiple possible plots:
@@ -92,12 +173,14 @@ for game in df['Match'].unique():
     #   of the actions
     # - stack_plots_sing: Plot singular plot of attack, defense and vitality as lineplot for each player
 
-    metrics = PlayerAnalysis(results)
-    # Example of using one of the plot functions for Attack, Defense and Vitality
-    metrics.radar_chart(f'test{game}.png')
+final_df = pd.concat(final_df, ignore_index=True)
+final_df.to_csv("MetricsDataset/250GamesLargerValue/250GamesLargerValue.csv", index=False)
+player_counts = final_df['Source'].value_counts()
+print(player_counts)
 
 
-    # Example of eccentricity plot
-    analysis = PlayerAnalysis(game_df)
-    # analysis.self_plots(f'singletest{game}.png')
+
+
+
+
 
