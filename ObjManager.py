@@ -120,26 +120,30 @@ def standardize_names(df):
     }, regex=True)
     return df
 
-df1 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_1.pkl")
-df2 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_2.pkl")
-df3 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_3.pkl")
-df4 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_4.pkl")
-# Apply the function to each dataframe
-df1 = standardize_names(df1)
-df2 = standardize_names(df2)
-df3 = standardize_names(df3)
-df4 = standardize_names(df4)
+# df1 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_1.pkl")
+# df2 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_2.pkl")
+# df3 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_3.pkl")
+# df4 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_4.pkl")
+# # Apply the function to each dataframe
+# df1 = standardize_names(df1)
+# df2 = standardize_names(df2)
+# df3 = standardize_names(df3)
+# df4 = standardize_names(df4)
 
-# Step 2: Merge the dataframes
-# Assuming the dataframes share a common key like 'round' or 'game_id'
-df = pd.concat([df1, df2, df3, df4], ignore_index=True)
+# # Step 2: Merge the dataframes
+# # Assuming the dataframes share a common key like 'round' or 'game_id'
+# df = pd.concat([df1, df2, df3, df4], ignore_index=True)
 
 
-base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/AIACIMP/Dataset.pkl"
+base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/Traning/game_dataset.pkl.csv"
+pickle_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/Traning/game_dataset.pkl"
 # here with the path of your dataset
 
-# df = pd.read_pickle(base_path)
-# df = df.reset_index(drop=True)
+# Read CSV file and convert to pickle format
+df = pd.read_csv(base_path)
+df.to_pickle(pickle_path)  # Save as pickle file
+df = pd.read_pickle(pickle_path)  # Now read from the pickle file
+df = df.reset_index(drop=True)
 final_df = []
 aggr_df = []
 
@@ -174,7 +178,7 @@ for game in df['Match'].unique():
     # - stack_plots_sing: Plot singular plot of attack, defense and vitality as lineplot for each player
 
 final_df = pd.concat(final_df, ignore_index=True)
-final_df.to_csv("MetricsDataset/250GamesLargerValue/250GamesLargerValue.csv", index=False)
+final_df.to_csv("MetricsDataset/dql_vit_1k.csv", index=False)
 player_counts = final_df['Source'].value_counts()
 print(player_counts)
 

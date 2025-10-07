@@ -1,7 +1,7 @@
 from sys import platform
 
 import CalculateMetrics
-from mpl_toolkits.mplot3d import Axes3D
+# from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -121,9 +121,9 @@ class PlayerAnalysis:
         palette = sns.color_palette("Set2", len(player_types))
         color_mapping = dict(zip(player_types, palette))
 
-        self._plot_stat(pivoted_attack, 'Attack', rounds, player_types, color_mapping, 'attack.png')
-        self._plot_stat(pivoted_defense, 'Defense', rounds, player_types, color_mapping, 'defense.png')
-        self._plot_stat(pivoted_vitality, 'Vitality', rounds, player_types, color_mapping, 'vitality.png')
+        self._plot_stat(pivoted_attack, 'Attack', rounds, player_types, color_mapping, f'{filename}_attack.png')
+        self._plot_stat(pivoted_defense, 'Defense', rounds, player_types, color_mapping, f'{filename}_defense.png')
+        self._plot_stat(pivoted_vitality, 'Vitality', rounds, player_types, color_mapping, f'{filename}_vitality.png')
 
 
     def _plot_radar(self, ax, data, metrics, player_types, round_num, colors, include_legend):
@@ -183,7 +183,8 @@ class PlayerAnalysis:
         for player_type in player_types:
             sns.lineplot(x=rounds, y=data[player_type], label=player_type, color=colors[player_type])
 
-        # Titles and labels
+        # Titles and labels 
+        plt.ylim(0, 1.5)
         plt.title(f'{stat_name} by Round')
         plt.xlabel('Round')
         plt.ylabel(stat_name)
@@ -193,6 +194,102 @@ class PlayerAnalysis:
         print("Figure saved")
         return fig, save_fig
 
+    def stack_barplots_sing(self, filename_prefix):
+        # Plot singular barplot of attack, defense and vitality for each player
+        pivoted_attack = self.df.pivot_table(index='Round', columns='Source', values='Attack', fill_value=0)
+        pivoted_defense = self.df.pivot_table(index='Round', columns='Source', values='Defense', fill_value=0)
+        pivoted_vitality = self.df.pivot_table(index='Round', columns='Source', values='Vitality', fill_value=0)
+
+        rounds = pivoted_attack.index
+        player_types = self.df['Source'].unique()
+        palette = sns.color_palette("Set2", len(player_types))
+        color_mapping = dict(zip(player_types, palette))
+
+        self._plot_stat_bar(pivoted_attack, 'Attack', rounds, player_types, color_mapping, f'{filename_prefix}_attack_bar.png')
+        self._plot_stat_bar(pivoted_defense, 'Defense', rounds, player_types, color_mapping, f'{filename_prefix}_defense_bar.png')
+        self._plot_stat_bar(pivoted_vitality, 'Vitality', rounds, player_types, color_mapping, f'{filename_prefix}_vitality_bar.png')
+
+    def _plot_stat_bar(self, data, stat_name, rounds, player_types, colors, filename):
+        fig = plt.figure(figsize=(10, 6))
+        bar_width = 0.8 / len(player_types)
+        # Calculate std for error bars
+        std_data = self.df.pivot_table(index='Round', columns='Source', values=stat_name, aggfunc='std', fill_value=0)
+        for idx, player_type in enumerate(player_types):
+            plt.bar(
+                rounds + idx * bar_width,
+                data[player_type],
+                width=bar_width,
+                label=player_type,
+                color=colors[player_type],
+                yerr=std_data[player_type],
+                capsize=5
+            )
+        plt.ylim(0, 1.5)
+        plt.title(f'{stat_name} by Round (Barplot)')
+        plt.xlabel('Round')
+        plt.ylabel(stat_name)
+        plt.legend(loc='upper right')
+        plt.savefig(filename)
+        print("Figure saved")
+        return fig, True
+
+    def barplot_overall_game(self, filename, metrics=None, plot_type='bar'):
+        """
+        Plot barplot of overall game metrics for each player, with error bars (std).
+        You can choose which metrics to plot by passing a list to 'metrics'.
+        Error bars are automatically calculated by seaborn (ci argument).
+        """
+        if metrics is None:
+            metrics = ['Attack', 'Defense', 'Vitality']
+            # Aggregate mean and std for each player and metric
+        mean_metrics = self.df.groupby('Source')[metrics].mean().reset_index()
+        std_metrics = self.df.groupby('Source')[metrics].std().reset_index()
+
+        sources = mean_metrics['Source'].tolist()
+        n_sources = len(sources)
+        if metrics is None:
+            metrics = ['Attack', 'Defense', 'Vitality']
+        if plot_type == 'box':
+            melted = self.df.melt(id_vars='Source', value_vars=metrics, var_name='Metric', value_name='Value')
+            plt.figure(figsize=(10, 6))
+            sns.boxplot(data=melted, x='Source', y='Value', hue='Metric', palette="Set2")
+            plt.title('Overall Game Metrics by Player (Boxplot)')
+            plt.xlabel('Player')
+            plt.ylabel('Value')
+            plt.legend(title='Metric')
+            plt.tight_layout()
+            plt.savefig(filename)
+            print("Figure saved")
+            return plt.gcf(), True
+        
+        mean_metrics = self.df.groupby('Source')[metrics].mean().reset_index()
+        std_metrics = self.df.groupby('Source')[metrics].std().reset_index()
+        sources = mean_metrics['Source'].tolist()
+        n_sources = len(sources)
+        n_metrics = len(metrics)
+        group_width = 0.8
+        bar_width = group_width / n_metrics
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(n_sources)
+        palette = sns.color_palette("Set2", n_metrics)
+
+        for i, metric in enumerate(metrics):
+            means = mean_metrics[metric].values
+            stds = std_metrics[metric].values
+            ax.bar(x + i * bar_width - group_width/2 + bar_width/2, means, bar_width,
+                    yerr=stds, capsize=5, label=metric, color=palette[i])
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(sources)
+        ax.set_title('Overall Game Metrics by Player')
+        ax.set_xlabel('Player')
+        ax.set_ylabel('Mean Value')
+        ax.legend(title='Metric')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Figure saved")
+        return fig, True
 
     def plot_multiple_line(self, filename):
         player_name = 'LARGER_VALUE_01'
