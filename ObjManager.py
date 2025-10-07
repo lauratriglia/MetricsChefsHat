@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from PlotManager import PlayerAnalysis
+import os
 
 
 def calculate_metrics(df, game):
@@ -10,7 +10,7 @@ def calculate_metrics(df, game):
     df['Attack'] = 0
     df['Defense'] = 0
     df['Vitality'] = 0
-    df['Eccentricity'] = 0  # New column for eccentricity
+    df['Eccentricity'] = 0.0  # New column for eccentricity, initialized as float
     df = df[(df['Match'] == game) & (df['Source'] != 'SYSTEM') & (df['Action_Type'] != 'DECLARE_PIZZA')]
 
     # Group by round and calculate metrics
@@ -71,8 +71,8 @@ def calculate_metrics(df, game):
                 if highest_prob != -max_value and action_done == 'pass':
                     differences = -0.03
 
-                # Store the eccentricity
-                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Eccentricity'] = differences
+                # Store the eccentricity, cast to float to avoid dtype warning
+                df.loc[(df['Round'] == round_number) & (df['Source'] == player), 'Eccentricity'] = float(differences)
 
         # Calculate vitality: Count of actions that are not 'pass'
         vitality = round_df.groupby('Source')['Action_Description'].apply(
@@ -120,29 +120,30 @@ def standardize_names(df):
     }, regex=True)
     return df
 
-df1 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_1.pkl")
-df2 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_2.pkl")
-df3 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_3.pkl")
-df4 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_4.pkl")
-# Apply the function to each dataframe
-df1 = standardize_names(df1)
-df2 = standardize_names(df2)
-df3 = standardize_names(df3)
-df4 = standardize_names(df4)
+# df1 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_1.pkl")
+# df2 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_2.pkl")
+# df3 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_3.pkl")
+# df4 = pd.read_pickle("/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/250GamesLargerValue/Dataset_4.pkl")
+# # Apply the function to each dataframe
+# df1 = standardize_names(df1)
+# df2 = standardize_names(df2)
+# df3 = standardize_names(df3)
+# df4 = standardize_names(df4)
 
 # Step 2: Merge the dataframes
 # Assuming the dataframes share a common key like 'round' or 'game_id'
-df = pd.concat([df1, df2, df3, df4], ignore_index=True)
+# df = pd.concat([df1, df2, df3, df4], ignore_index=True)
 
 
-base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/AIACIMP/Dataset.pkl"
-# here with the path of your dataset
-
-# df = pd.read_pickle(base_path)
+base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/testing/all_rooms_concatenated.pkl"
+# Read CSV and save as pickle
+# df = pd.read_csv(base_path)
 # df = df.reset_index(drop=True)
+# pickle_path = base_path.replace('.csv', '.pkl')  # Remove .csv extension for pickle
+# df.to_pickle(pickle_path)
 final_df = []
 aggr_df = []
-
+df = pd.read_pickle(base_path)
 # Calculate scores
 for game in df['Match'].unique():
     if game == 0:
@@ -174,7 +175,10 @@ for game in df['Match'].unique():
     # - stack_plots_sing: Plot singular plot of attack, defense and vitality as lineplot for each player
 
 final_df = pd.concat(final_df, ignore_index=True)
-final_df.to_csv("MetricsDataset/250GamesLargerValue/250GamesLargerValue.csv", index=False)
+
+output_dir = "MetricsDataset/Training/"
+os.makedirs(output_dir, exist_ok=True)
+final_df.to_csv(os.path.join(output_dir, "DQL_atk_all.csv"), index=False)
 player_counts = final_df['Source'].value_counts()
 print(player_counts)
 

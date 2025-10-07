@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import os 
 from PlotManager import PlayerAnalysis
 from scipy.stats import entropy
 
@@ -127,92 +127,17 @@ def calculate_round_percentage(sub_df):
 
 
 
-csv_files = ['MetricsDataset/LargerValuevsRandom/LargerValuevsRandom.csv', 'MetricsDataset/LargerValuevsDql/LargerValuevsDql.csv',
-             'MetricsDataset/LargerValuevsPpo/LargerValuevsPpo.csv', 'MetricsDataset/AIACIMP/AIACIMP.csv']
-
 # final_df = filtering_multiple_df(csv_files)
-df = pd.read_csv("MetricsDataset/250GamesLargerValue/250GamesLargerValue_OldMetrics.csv")
+df = pd.read_csv("MetricsDataset/Training/DQL_atk_all.csv")
 df = clean_dataset(df)
 df['Cluster'] = df.groupby('Match')['Round'].transform(lambda x: x.max())  # Get the max round for each match
-df['Cluster'] = df.apply(lambda row: assign_cluster_tens(row, row['Cluster']), axis=1)
+df['Cluster'] = df.apply(lambda row: assign_cluster(row, row['Cluster']), axis=1)
 # df['Eccentricity'] = df['Eccentricity'].apply(lambda x: np.nan if x < 0 else x)
 
 # df = df.groupby('Match').apply(calculate_round_percentage)
 # Assume 'agg_data' is the DataFrame with mean_attack, mean_defense, mean_vitality for each player
-"""
-agg_data = df.groupby(['Cluster', 'Source']).agg(
-                mean_attack=('Attack', 'mean'),
-                mean_defense=('Defense', 'mean'),
-                mean_vitality=('Vitality', 'mean'),
-                mean_eccentricity=('Eccentricity', 'mean'),
-            ).reset_index()
-"""
-agg_data = df.groupby(['Cluster', 'Source']).agg(
-        mean_pass = ('Number_Pass', 'mean'),
-        mean_discard = ('Number_Discard', 'mean'),
-).reset_index()
-# Step 1: Extract the metrics for two players, e.g., Player 1 and Player 2
-player1 = agg_data[agg_data['Source'] == 'DQL_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-player2 = agg_data[agg_data['Source'] == 'PPO_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-
-# Step 2: Normalize the vectors so they sum to 1 (turn them into probability distributions)
-player1_prob = player1 / np.sum(player1)
-player2_prob = player2 / np.sum(player2)
-
-# Step 3: Calculate KL divergence from Player 1 to Player 2
-kl_divergence = entropy(player1_prob, player2_prob)
-
-# Output the KL divergence
-print(f"KL Divergence between DQL and PPO: {kl_divergence}")
-player1 = agg_data[agg_data['Source'] == 'DQL_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-player2 = agg_data[agg_data['Source'] == 'RANDOM_01'][['mean_pass', 'mean_discard']].values[0]
-
-# Step 2: Normalize the vectors so they sum to 1 (turn them into probability distributions)
-player1_prob = player1 / np.sum(player1)
-player2_prob = player2 / np.sum(player2)
-
-# Step 3: Calculate KL divergence from Player 1 to Player 2
-kl_divergence = entropy(player1_prob, player2_prob)
-
-# Output the KL divergence
-print(f"KL Divergence between DQL and Random: {kl_divergence}")
-player1 = agg_data[agg_data['Source'] == 'DQL_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-player2 = agg_data[agg_data['Source'] == 'LARGER_VALUE_03'][['mean_pass', 'mean_discard']].values[0]
-
-# Step 2: Normalize the vectors so they sum to 1 (turn them into probability distributions)
-player1_prob = player1 / np.sum(player1)
-player2_prob = player2 / np.sum(player2)
-
-# Step 3: Calculate KL divergence from Player 1 to Player 2
-kl_divergence = entropy(player1_prob, player2_prob)
-
-# Output the KL divergence
-print(f"KL Divergence between DQL and LargerValue: {kl_divergence}")
-
-player1 = agg_data[agg_data['Source'] == 'PPO_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-player2 = agg_data[agg_data['Source'] == 'LARGER_VALUE_03'][['mean_pass', 'mean_discard']].values[0]
-
-# Step 2: Normalize the vectors so they sum to 1 (turn them into probability distributions)
-player1_prob = player1 / np.sum(player1)
-player2_prob = player2 / np.sum(player2)
-
-# Step 3: Calculate KL divergence from Player 1 to Player 2
-kl_divergence = entropy(player1_prob, player2_prob)
-
-# Output the KL divergence
-print(f"KL Divergence between PPO and LargerValue: {kl_divergence}")
-player1 = agg_data[agg_data['Source'] == 'PPO_vsEveryone'][['mean_pass', 'mean_discard']].values[0]
-player2 = agg_data[agg_data['Source'] == 'RANDOM_01'][['mean_pass', 'mean_discard']].values[0]
-
-# Step 2: Normalize the vectors so they sum to 1 (turn them into probability distributions)
-player1_prob = player1 / np.sum(player1)
-player2_prob = player2 / np.sum(player2)
-
-# Step 3: Calculate KL divergence from Player 1 to Player 2
-kl_divergence = entropy(player1_prob, player2_prob)
-
-# Output the KL divergence
-print(f"KL Divergence between PPO and Random: {kl_divergence}")
+output_dir = "MetricsPlots"
+os.makedirs(output_dir, exist_ok=True)
 plots = PlayerAnalysis(df)
 # plots.chosen_mandatory_pass("MetricsPlots/AIACIMP/")
 # plots.plots_3d_time_metrics("MetricsPlots/250GamesLargerValue/")
@@ -226,8 +151,8 @@ plots = PlayerAnalysis(df)
 #plots.lineplot_bme("MetricsPlots/250GamesLargerValue/" , 'Vitality')
 #plots.lineplot_bme("MetricsPlots/250GamesLargerValue/" , 'Eccentricity')
 # plots.percentage_rounds("MetricsPlots/LargerValuevsRandom/Prova.png")
-#plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Attack')
-#plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Defense')
+plots.boxplot_players(os.path.join(output_dir, "DQLs_x"), 'Attack')
+#plots.boxplot_players(os.path.join(output_dir, "DQLs_test_"), 'Defense')
 #plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Vitality')
 #plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Eccentricity')
 # plots.boxplot_players("MetricsPlots/LargerValueAll/", 'Number_Pass')
