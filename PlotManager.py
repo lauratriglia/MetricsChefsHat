@@ -9,6 +9,7 @@ import seaborn as sns
 import numpy as np
 import math
 from scipy.interpolate import griddata
+import ptitprince as pt
 
 class PlayerAnalysis:
     def __init__(self, df):
@@ -232,6 +233,119 @@ class PlayerAnalysis:
         plt.savefig(filename)
         print("Figure saved")
         return fig, True
+    
+    def _plot_stat_violin(self, stat_name, filename):
+        plt.figure(figsize=(10, 6))
+        ax = sns.violinplot(x='Source', y=stat_name, data=self.df, inner=None, palette='Set2')
+        sns.swarmplot(x='Source', y=stat_name, data=self.df, color='k', alpha=0.6, size=3)
+        plt.title(f'{stat_name} distribution by Player (Violin + Swarm)')
+        plt.ylabel(stat_name)
+        plt.xlabel('Player Type')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Violin plot saved")
+    
+    def _plot_stat_raincloud(self, stat_name, filename):
+        plt.figure(figsize=(10, 6))
+        pt.RainCloud(x='Source', y=stat_name, data=self.df, palette='Set2', width_viol=0.6, move=0.2)
+        plt.title(f'{stat_name} distribution by Player (Raincloud)')
+        plt.ylabel(stat_name)
+        plt.xlabel('Player Type')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Raincloud plot saved")
+
+    def compare_stat_visualizations(self, filename_prefix, stat_name):
+        df = self.df.copy()
+        plt.figure(figsize=(20, 10))
+        player_types = df['Source'].unique()
+        palette = sns.color_palette("Set2", len(player_types))
+
+        # 1️⃣ Barplot (mean ± std)
+        plt.subplot(2, 3, 1)
+        mean_df = df.groupby('Source')[stat_name].mean()
+        std_df = df.groupby('Source')[stat_name].std()
+        plt.bar(mean_df.index, mean_df.values, yerr=std_df.values, capsize=5, color=palette)
+        plt.title(f'Barplot: {stat_name} (mean ± std)')
+        plt.ylabel(stat_name)
+        plt.xlabel('Player Type')
+
+        # 2️⃣ Boxplot + stripplot
+        plt.subplot(2, 3, 2)
+        sns.boxplot(x='Source', y=stat_name, hue='Source', data=df,
+                    palette=palette, showfliers=False, legend=False)
+        sns.stripplot(x='Source', y=stat_name, data=df,
+                      color='k', alpha=0.6, size=2, jitter=0.35)
+        plt.title(f'Box + Strip: {stat_name}')
+        plt.xlabel('')
+        plt.ylabel('')
+
+        # 3️⃣ Strip + Mean/CI overlay
+        plt.subplot(2, 3, 3)
+        sns.stripplot(x='Source', y=stat_name, data=df,
+                      alpha=0.5, color='gray', size=2, jitter=0.35)
+        sns.pointplot(x='Source', y=stat_name, data=df,
+                      errorbar=('ci', 95), linestyle='none', capsize=0.2,
+                      color='black', markers='D')
+        plt.title(f'Strip + Mean ± 95% CI: {stat_name}')
+        plt.xlabel('')
+        plt.ylabel('')
+
+        # 4️⃣ Violin + strip
+        plt.subplot(2, 3, 4)
+        sns.violinplot(x='Source', y=stat_name, hue='Source', data=df,
+                       inner=None, palette=palette, legend=False)
+        sns.stripplot(x='Source', y=stat_name, data=df,
+                      color='k', alpha=0.6, size=2, jitter=0.35)
+        plt.title(f'Violin + Strip: {stat_name}')
+        plt.xlabel('Player Type')
+        plt.ylabel(stat_name)
+
+        # 5️⃣ Raincloud
+        plt.subplot(2, 3, 5)
+        pt.RainCloud(x='Source', y=stat_name, hue='Source', data=df,
+                     palette=palette, width_viol=0.6, move=0.2)
+        plt.title(f'Raincloud: {stat_name}')
+        plt.xlabel('Player Type')
+        plt.ylabel(stat_name)
+
+        plt.tight_layout()
+        plt.savefig(f"{filename_prefix}_{stat_name}_comparison.png")
+        print(f"Saved comparison figure for {stat_name}")
+
+    def _plot_stat_swarm_mean(self, stat_name, filename):
+        plt.figure(figsize=(10, 6))
+        sns.stripplot(x='Source', y=stat_name, data=self.df, jitter=True, alpha=0.5, color='gray')
+        sns.pointplot(x='Source', y=stat_name, data=self.df, ci=95, join=False, capsize=0.2, color='black', markers='D')
+        plt.title(f'{stat_name} (Mean ± 95% CI)')
+        plt.ylabel(stat_name)
+        plt.xlabel('Player Type')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Swarm + Mean plot saved")
+    
+    def _plot_stat_box_swarm(self, stat_name, filename):
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(x='Source', y=stat_name, data=self.df, palette='Set2', showfliers=False)
+        sns.swarmplot(x='Source', y=stat_name, data=self.df, color='k', alpha=0.6)
+        plt.title(f'{stat_name} by Player (Box + Swarm)')
+        plt.ylabel(stat_name)
+        plt.xlabel('Player Type')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Box + Swarm plot saved")
+    
+    def _plot_stat_difference(self, stat_name, filename, baseline='PPO'):
+        means = self.df.groupby('Source')[stat_name].mean()
+        diffs = means - means[baseline]
+        plt.figure(figsize=(8, 5))
+        diffs.drop(baseline).plot(kind='bar', color='skyblue')
+        plt.axhline(0, color='black', lw=1)
+        plt.title(f'{stat_name} difference vs {baseline}')
+        plt.ylabel('Mean Difference')
+        plt.tight_layout()
+        plt.savefig(filename)
+        print("Effect size plot saved")
 
     def barplot_overall_game(self, filename, metrics=None, plot_type='bar'):
         """

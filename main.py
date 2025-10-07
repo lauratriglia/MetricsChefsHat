@@ -130,14 +130,11 @@ def calculate_round_percentage(sub_df):
 
 # final_df = filtering_multiple_df(csv_files)
 df = pd.read_csv("MetricsDataset/dql_vit_1k.csv")
-df = pd.read_csv("MetricsDataset/Training/DQL_atk_all.csv")
+#df = pd.read_csv("MetricsDataset/Training/DQL_atk_all.csv")
 df = clean_dataset(df)
 df['Cluster'] = df.groupby('Match')['Round'].transform(lambda x: x.max())  # Get the max round for each match
 df['Cluster'] = df.apply(lambda row: assign_cluster(row, row['Cluster']), axis=1)
 
-
-
-df['Cluster'] = df.apply(lambda row: assign_cluster(row, row['Cluster']), axis=1)
 # df['Eccentricity'] = df['Eccentricity'].apply(lambda x: np.nan if x < 0 else x)
 
 # df = df.groupby('Match').apply(calculate_round_percentage)
@@ -160,7 +157,7 @@ plots = PlayerAnalysis(df)
 # plots.boxplot_players("MetricsPlots/DQL_Vit/boxplot_", 'Attack')
 # plots.boxplot_players("MetricsPlots/dql_def_vsRandom", 'Defense')
 # plots.boxplot_players("MetricsPlots/dql_def_vsRandom", 'Vitality')
-plots.boxplot_players(os.path.join(output_dir, "DQLs_x"), 'Attack')
+#plots.boxplot_players(os.path.join(output_dir, "DQLs_x"), 'Attack')
 #plots.boxplot_players(os.path.join(output_dir, "DQLs_test_"), 'Defense')
 #plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Vitality')
 #plots.boxplot_players("MetricsPlots/DqlAllRandom/", 'Eccentricity')
@@ -168,22 +165,24 @@ plots.boxplot_players(os.path.join(output_dir, "DQLs_x"), 'Attack')
 # plots.boxplot_players("MetricsPlots/LargerValueAll/", 'Number_Discard')
 #plots.stack_plots_sing("MetricsPlots/DQL_Def/dql_def_vsRandom")
 #plots.stack_barplots_sing("MetricsPlots/DQL_Def/dql_def_vsRandom")
-plots.barplot_overall_game("MetricsPlots/DQL_Vit/dql_vit_1k_box", metrics='Vitality', plot_type='box')
-
+#plots.barplot_overall_game("MetricsPlots/DQL_Vit/dql_vit_1k_box", metrics='Vitality', plot_type='box')
+plots.compare_stat_visualizations("MetricsPlots/DQL_vit/_", 'Attack')
+plots.compare_stat_visualizations("MetricsPlots/DQL_vit/_", 'Defense')
+plots.compare_stat_visualizations("MetricsPlots/DQL_vit/_", 'Vitality')
 
 #print("Mean Attack for :", df[df['Source'] == 'DQL_attack']['Attack'].mean())
 
 
 
 # Statistical test between players on Attack
-from scipy.stats import f_oneway, ttest_ind
-players = df['Source'].unique()
-attack_groups = [df[df['Source'] == player]['Vitality'].dropna() for player in players]
-anova_result = f_oneway(*attack_groups)
-print('ANOVA result for Vitality between players:', anova_result)
+# from scipy.stats import f_oneway, ttest_ind
+# players = df['Source'].unique()
+# attack_groups = [df[df['Source'] == player]['Vitality'].dropna() for player in players]
+# anova_result = f_oneway(*attack_groups)
+# print('ANOVA result for Vitality between players:', anova_result)
 
-# Pairwise t-tests
-for i in range(len(players)):
-    for j in range(i+1, len(players)):
-        t_stat, p_val = ttest_ind(attack_groups[i], attack_groups[j], equal_var=False)
-        print(f'T-test between {players[i]} and {players[j]}: t={t_stat:.3f}, p={p_val:.3g}')
+# # Pairwise t-tests
+# for i in range(len(players)):
+#     for j in range(i+1, len(players)):
+#         t_stat, p_val = ttest_ind(attack_groups[i], attack_groups[j], equal_var=False)
+#         print(f'T-test between {players[i]} and {players[j]}: t={t_stat:.3f}, p={p_val:.3g}')
