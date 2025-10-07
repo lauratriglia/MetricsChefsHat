@@ -130,17 +130,20 @@ def standardize_names(df):
 # df3 = standardize_names(df3)
 # df4 = standardize_names(df4)
 
-# Step 2: Merge the dataframes
-# Assuming the dataframes share a common key like 'round' or 'game_id'
+# # Step 2: Merge the dataframes
+# # Assuming the dataframes share a common key like 'round' or 'game_id'
 # df = pd.concat([df1, df2, df3, df4], ignore_index=True)
 
 
-base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/testing/all_rooms_concatenated.pkl"
-# Read CSV and save as pickle
-# df = pd.read_csv(base_path)
-# df = df.reset_index(drop=True)
-# pickle_path = base_path.replace('.csv', '.pkl')  # Remove .csv extension for pickle
-# df.to_pickle(pickle_path)
+base_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/Traning/game_dataset.pkl.csv"
+pickle_path = "/usr/local/src/robot/cognitiveInteraction/MetricsChefsHat/Datasets/Traning/game_dataset.pkl"
+# here with the path of your dataset
+
+# Read CSV file and convert to pickle format
+df = pd.read_csv(base_path)
+df.to_pickle(pickle_path)  # Save as pickle file
+df = pd.read_pickle(pickle_path)  # Now read from the pickle file
+df = df.reset_index(drop=True)
 final_df = []
 aggr_df = []
 df = pd.read_pickle(base_path)
@@ -175,10 +178,7 @@ for game in df['Match'].unique():
     # - stack_plots_sing: Plot singular plot of attack, defense and vitality as lineplot for each player
 
 final_df = pd.concat(final_df, ignore_index=True)
-
-output_dir = "MetricsDataset/Training/"
-os.makedirs(output_dir, exist_ok=True)
-final_df.to_csv(os.path.join(output_dir, "DQL_atk_all.csv"), index=False)
+final_df.to_csv("MetricsDataset/dql_vit_1k.csv", index=False)
 player_counts = final_df['Source'].value_counts()
 print(player_counts)
 
